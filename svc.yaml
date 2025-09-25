@@ -1,0 +1,69 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  annotations:
+    run.googleapis.com/ingress: all
+    run.googleapis.com/ingress-status: all
+    run.googleapis.com/invoker-iam-disabled: 'true'
+    run.googleapis.com/urls: '["https://magi-app-674864388126.asia-northeast1.run.app","https://magi-app-ffxn6si3tq-an.a.run.app"]'
+  labels:
+    cloud.googleapis.com/location: asia-northeast1
+  name: magi-app
+  namespace: '674864388126'
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/maxScale: '20'
+        autoscaling.knative.dev/minScale: '1'
+        run.googleapis.com/client-name: gcloud
+        run.googleapis.com/client-version: 537.0.0
+        run.googleapis.com/startup-cpu-boost: 'true'
+      labels:
+        client.knative.dev/nonce: mvzbmgkhmu
+        run.googleapis.com/startupProbeType: Default
+    spec:
+      containerConcurrency: 40
+      containers:
+      - env:
+        - name: OPENAI_MODEL
+          value: gpt-4o
+        - name: XAI_MODEL
+          value: grok-2
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              key: '5'
+              name: OpenAI
+        - name: XAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              key: '3'
+              name: Grok
+        - name: GEMINI_MODEL
+          value: gemini-1.5-flash
+        - name: GEMINI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              key: '9'
+              name: Gemini
+        image: asia-northeast1-docker.pkg.dev/gen-lang-client-0690375603/magi-repo/magi-app:20250910-0215
+        name: magi-app-1
+        ports:
+        - containerPort: 8080
+          name: http1
+        resources:
+          limits:
+            cpu: 1000m
+            memory: 512Mi
+        startupProbe:
+          failureThreshold: 1
+          periodSeconds: 240
+          tcpSocket:
+            port: 8080
+          timeoutSeconds: 240
+      serviceAccountName: magi-run-sa@gen-lang-client-0690375603.iam.gserviceaccount.com
+      timeoutSeconds: 300
+  traffic:
+  - latestRevision: true
+    percent: 100

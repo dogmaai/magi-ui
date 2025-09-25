@@ -1,0 +1,19 @@
+ const openai = require('./providers/openai');
+ const gemini = require('./providers/gemini');
+ const grok   = require('./providers/grok');
++const anthropic = require('./providers/anthropic');
+
+
+
+// ===== Status: secretsBound（APIキー可視化） =====
+app.get('/status', (_req, res) => {
+  res.json({
+    region: process.env.REGION || process.env.GOOGLE_CLOUD_REGION || 'unknown',
+    secretsBound: {
+      OPENAI_API_KEY:  !!process.env.OPENAI_API_KEY,
+      GEMINI_API_KEY:  !!process.env.GEMINI_API_KEY,
+      XAI_API_KEY:     !!process.env.XAI_API_KEY,
+      ANTHROPIC_API_KEY: !!process.env.ANTHROPIC_API_KEY
+    }
+  });
+});

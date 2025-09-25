@@ -1,0 +1,15 @@
+FROM node:20-alpine
+WORKDIR /app
+
+# 依存を先に入れてキャッシュを効かせる
+COPY package*.json ./
+RUN npm ci --omit=dev
+
+# アプリ本体
+COPY . .
+
+# Cloud Run 標準ポート
+ENV PORT=8080
+EXPOSE 8080
+
+CMD ["node","server.js"]

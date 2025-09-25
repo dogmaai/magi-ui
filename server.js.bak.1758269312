@@ -1,0 +1,6 @@
+ const openai = require('./providers/openai');
+ const gemini = require('./providers/gemini');
+ const grok   = require('./providers/grok');
++const anthropic = require('./providers/anthropic');
+
+

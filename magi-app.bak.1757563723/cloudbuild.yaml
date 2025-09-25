@@ -1,0 +1,22 @@
+steps:
+# Dockerイメージをビルド
+- name: 'gcr.io/cloud-builders/docker'
+  args: ['build', '-t', 'asia-northeast1-docker.pkg.dev/gen-lang-client-0690375603/cloud-run-source-deploy/magi-app:$_TAG', '.']
+# イメージをArtifact Registryにプッシュ
+- name: 'gcr.io/cloud-builders/docker'
+  args: ['push', 'asia-northeast1-docker.pkg.dev/gen-lang-client-0690375603/cloud-run-source-deploy/magi-app:$_TAG']
+# Cloud Runにデプロイ
+- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  entrypoint: gcloud
+  args:
+    - 'run'
+    - 'deploy'
+    - 'magi-app'
+    - '--image=asia-northeast1-docker.pkg.dev/gen-lang-client-0690375603/cloud-run-source-deploy/magi-app:$_TAG'
+    - '--region=asia-northeast1'
+    - '--service-account=magi-run-sa@gen-lang-client-0690375603.iam.gserviceaccount.com'
+    - '--no-allow-unauthenticated'
+images:
+- 'asia-northeast1-docker.pkg.dev/gen-lang-client-0690375603/cloud-run-source-deploy/magi-app:$_TAG'
+substitutions:
+  _TAG: 'latest' # デフォルトタグ

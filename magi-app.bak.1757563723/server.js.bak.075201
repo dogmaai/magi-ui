@@ -1,0 +1,162 @@
+const express = require('express');
+const cors = require('cors');
+
+const PORT = process.env.PORT || 8080;
+
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
+const XAI_API_KEY    = process.env.XAI_API_KEY || "";
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
+
+const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o";
+const XAI_MODEL    = process.env.XAI_MODEL    || "grok-2";
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-pro";
+
+const app = express();
+app.use(cors());
+app.use(express.json({ limit: "1mb" }));
+
+const SYS_TASK_PROMPT = (task) => `
+あなたは上級アシスタント。次の業務タスクに対して、箇条書き主体で簡潔・正確・実務的に回答してください。
+前提：日本の法人営業、ITインフラ/クラウド提案の文脈。丁寧語だが回りくどさは排除。
+タスク: ${task}
+`;
+
+// ---- helpers ----
+async function httpJson(url, opt) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), 45_000);
+  try {
+    const res = await fetch(url, { ...opt, signal: ctrl.signal });
+    if (!res.ok) throw new Error(`${url} HTTP ${res.status}`);
+    return await res.json();
+  } finally { clearTimeout(t); }
+}
+
+// ---- providers ----
+async function callOpenAI(task) {
+  if (!OPENAI_API_KEY) return { model: "openai", ok: false, text: "", error: "missing OPENAI_API_KEY" };
+  const body = {
+    model: OPENAI_MODEL,
+    temperature: 0.2,
+    messages: [
+      { role: "system", content: "You are a concise, helpful assistant for Japanese B2B IT sales." },
+      { role: "user", content: SYS_TASK_PROMPT(task) },
+    ],
+  };
+  try {
+    const json = await httpJson("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const text = (json.choices?.[0]?.message?.content || "").trim();
+    return { model: "openai", ok: true, text };
+  } catch (e) { return { model: "openai", ok: false, text: "", error: String(e) }; }
+}
+
+async function callXAI(task) {
+  if (!XAI_API_KEY) return { model: "xai", ok: false, text: "", error: "missing XAI_API_KEY" };
+  const body = {
+    model: XAI_MODEL,
+    temperature: 0.2,
+    messages: [
+      { role: "system", content: "You are a concise, helpful assistant for Japanese B2B IT sales." },
+      { role: "user", content: SYS_TASK_PROMPT(task) },
+    ],
+  };
+  try {
+    const json = await httpJson("https://api.x.ai/v1/chat/completions", {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${XAI_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const text = (json.choices?.[0]?.message?.content || "").trim();
+    return { model: "xai", ok: true, text };
+  } catch (e) { return { model: "xai", ok: false, text: "", error: String(e) }; }
+}
+
+async function callGemini(task) {
+  if (!GEMINI_API_KEY) return { model: "gemini", ok: false, text: "", error: "missing GEMINI_API_KEY" };
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(GEMINI_MODEL)}:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`;
+  const body = {
+    contents: [{ role: "user", parts: [{ text: SYS_TASK_PROMPT(task) }]}],
+    generationConfig: { temperature: 0.2 }
+  };
+  try {
+    const json = await httpJson(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const text = (json.candidates?.[0]?.content?.parts || []).map(p => p.text || "").join("\n").trim();
+    return { model: "gemini", ok: true, text };
+  } catch (e) { return { model: "gemini", ok: false, text: "", error: String(e) }; }
+}
+
+// ---- arbiter ----
+async function arbitrateConsensus(task, answers) {
+  const { openai, xai, gemini } = answers;
+  if (OPENAI_API_KEY) {
+    try {
+      const body = {
+        model: OPENAI_MODEL,
+        temperature: 0.2,
+        messages: [{
+          role: "system",
+          content: "You synthesize multiple assistant answers into one crisp, actionable output for Japanese B2B IT sales."
+        },{
+          role: "user",
+          content:
+`タスク: ${task}
+以下は同じビジネスタスクに対する3つの回答です。
+- GPT: """${openai?.text || ""}"""
+- Grok: """${xai?.text || ""}"""
+- Gemini: """${gemini?.text || ""}"""
+
+役割：上級コンサルとして、重複を除き、矛盾があれば調停し、最も実務的で短く明瞭な統合回答を日本語で提示。
+出力形式：
+1) 結論（最重要の3〜6項目の箇条書き）
+2) 注意点（リスク/前提）
+3) 次アクション（即時に取れる具体タスク）`
+        }]
+      };
+      const json = await httpJson("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const text = (json.choices?.[0]?.message?.content || "").trim();
+      return { ok: true, text, picked: "arbiter:openai" };
+    } catch {}
+  }
+  const pieces = [answers.openai?.text, answers.xai?.text, answers.gemini?.text]
+    .filter(Boolean).join("\n").split(/\r?\n/);
+  const uniq = Array.from(new Set(pieces.map(s=>s.trim()).filter(Boolean)));
+  return { ok: true, text: uniq.join("\n"), picked: "fallback:merge" };
+}
+
+// ---- routes ----
+app.get("/", (_req, res) => res.type("text/plain").send("MAGI up (prod)"));
+app.get("/health", (_req, res) => res.json({ ok: true }));
+
+app.post("/api/magi", async (req, res) => {
+  try {
+    const task = ((req.body && req.body.task) || "").toString().trim();
+    if (!task) return res.status(400).json({ error: "task is required" });
+
+    const [openai, xai, gemini] = await Promise.all([
+      callOpenAI(task),
+      callXAI(task),
+      callGemini(task),
+    ]);
+    const consensus = await arbitrateConsensus(task, { openai, xai, gemini });
+
+    res.json({ task, answers: { openai, xai, gemini }, consensus, timestamp: new Date().toISOString() });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "internal_error", detail: String(e) });
+  }
+});
+
+// ---- start ----
+app.listen(PORT, () => console.log(`Listening on ${PORT}`));

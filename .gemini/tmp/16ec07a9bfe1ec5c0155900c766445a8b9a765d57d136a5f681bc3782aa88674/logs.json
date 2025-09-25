@@ -1,0 +1,23 @@
+[
+  {
+    "sessionId": "e7b3ecf2-2e2c-4ec4-b9c4-ac8a01f2103a",
+    "messageId": 0,
+    "type": "user",
+    "message": "このGeminiCLIとは？",
+    "timestamp": "2025-09-10T06:36:39.066Z"
+  },
+  {
+    "sessionId": "e7b3ecf2-2e2c-4ec4-b9c4-ac8a01f2103a",
+    "messageId": 1,
+    "type": "user",
+    "message": "どうしてもエラーになる",
+    "timestamp": "2025-09-10T09:38:09.563Z"
+  },
+  {
+    "sessionId": "e7b3ecf2-2e2c-4ec4-b9c4-ac8a01f2103a",
+    "messageId": 2,
+    "type": "user",
+    "message": "jun@cloudshell:~ (gen-lang-client-0690375603)$ cd ~/magi-app\ngcloud builds submit --region=\"$REGION\" --tag \"$IMAGE\" .\nERROR: (gcloud.builds.submit) Invalid value for [--tag]: Tag value must be in the *gcr.io* or *pkg.dev* namespace.\njun@cloudshell:~/magi-app (gen-lang-client-0690375603)$ ^C\njun@cloudshell:~/magi-app (gen-lang-client-0690375603)$",
+    "timestamp": "2025-09-10T09:38:34.941Z"
+  }
+]

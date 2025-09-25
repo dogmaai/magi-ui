@@ -1,0 +1,41 @@
+// server.js
+import express from "express";
+import cors from "cors";
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+// 既存の疎通OKルート
+app.get("/", (_req, res) => res.type("text").send("MAGI up (prod)"));
+app.get("/health", (_req, res) => res.status(200).json({ ok: true }));
+
+// OpenAI ping（環境変数が読めるかだけ確認）
+app.post("/api/openai/ping", (_req, res) => {
+  const keyExists = !!process.env.OPENAI_API_KEY;
+  const model = process.env.OPENAI_MODEL || "gpt-4o";
+  if (!keyExists) return res.status(500).json({ error: "OPENAI_API_KEY missing" });
+  return res.json({ ok: true, model });
+});
+
+// Grok (XAI) ping
+app.post("/api/grok/ping", (_req, res) => {
+  const keyExists = !!process.env.XAI_API_KEY;
+  const model = process.env.XAI_MODEL || "grok-2";
+  if (!keyExists) return res.status(500).json({ error: "XAI_API_KEY missing" });
+  return res.json({ ok: true, model });
+});
+
+// Gemini ping（実APIを軽く叩く）
+app.post("/api/gemini/ping", async (_req, res) => {
+  try {
+    const apiKey = process.env.GEMINI_API_KEY;
+    const model  = process.env.GEMINI_MODEL || "gemini-1.5-flash";
+    if (!apiKey) return res.status(500).json({ error: "GEMINI_API_KEY missing" });
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    const r = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contents: [{ parts: [{ text: "ping" }]}] })
+    })
