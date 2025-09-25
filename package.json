@@ -1,11 +1,23 @@
 {
+<<<<<<< HEAD
   "name": "magi-app",
   "version": "2.0.0",
+=======
+  "name": "magi-ui",
+  "version": "1.0.0",
+  "type": "commonjs",
+>>>>>>> 5149a1ee4f083a1d7e6fea418c9669c939f794d6
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
+<<<<<<< HEAD
     "express": "^4.19.2"
+=======
+    "express": "^4.21.2",
+    "google-auth-library": "^9.15.1",
+    "morgan": "^1.10.0"
+>>>>>>> 5149a1ee4f083a1d7e6fea418c9669c939f794d6
   }
 }

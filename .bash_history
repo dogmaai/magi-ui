@@ -1109,3 +1109,145 @@ echo "Git設定完了"
 # === リモートリポジトリ追加 ===
 git remote add origin https://github.com/miroqu369/magi-ui.git
 git remote -v
+# === ファイルをステージング ===
+git add .
+git status
+# === 初回コミット ===
+git commit -m "🚀 MAGI System Backend Integration Complete
+
+✨ Features Added:
+- Multi-Agent AI integration (OpenAI + Gemini + Claude)
+- Semantic majority voting system  
+- Production-ready Node.js backend
+- Google Cloud Run deployment configuration
+- RESTful API with rate limiting
+
+🛠 Technical Stack:
+- Node.js + Express backend
+- Google Cloud Run deployment
+- AI API integrations
+- Security with authentication
+
+📊 Status: Production deployed and operational"
+# === GitHubにプッシュ ===
+git branch -M main
+git push -u origin main
+# === リモートの内容を確認 ===
+git fetch origin
+git branch -a
+# === リモートの変更を統合 ===
+git pull origin main --allow-unrelated-histories
+# === マージ結果確認 ===
+git status
+ls -la
+# === プッシュ実行 ===
+git push origin main
+jun@cloudshell:~ (screen-share-459802)$ # === GitHubにプッシュ ===
+git branch -M main
+git push -u origin main
+To https://github.com/miroqu369/magi-ui.git
+error: failed to push some refs to 'https://github.com/miroqu369/magi-ui.git'
+hint: Updates were rejected because the remote contains work that you do not
+hint: have locally. This is usually caused by another repository pushing to
+hint: the same ref. If you want to integrate the remote changes, use
+hint: 'git pull' before pushing again.
+hint: See the 'Note about fast-forwards' in 'git push --help' for details.
+jun@cloudshell:~ (screen-share-459802)$ 
+jun@cloudshell:~ (screen-share-459802)$ # === リモートの内容を確認 ===
+git fetch origin
+git branch -a
+remote: Enumerating objects: 1101, done.
+remote: Counting objects: 100% (1101/1101), done.
+remote: Compressing objects: 100% (836/836), done.
+remote: Total 1101 (delta 193), reused 1101 (delta 193), pack-reused 0 (from 0)
+Receiving objects: 100% (1101/1101), 1.26 MiB | 6.15 MiB/s, done.
+Resolving deltas: 100% (193/193), done.
+From https://github.com/miroqu369/magi-ui
+* main
+jun@cloudshell:~ (screen-share-459802)$ 
+jun@cloudshell:~ (screen-share-459802)$ # === リモートの変更を統合 ===
+git pull origin main --allow-unrelated-histories
+From https://github.com/miroqu369/magi-ui
+hint: You have divergent branches and need to specify how to reconcile them.
+hint: You can do so by running one of the following commands sometime before
+hint: your next pull:
+hint: 
+hint:   git config pull.rebase false  # merge
+hint:   git config pull.rebase true   # rebase
+hint:   git config pull.ff only       # fast-forward only
+hint: 
+hint: You can replace "git config" with "git config --global" to set a default
+hint: preference for all repositories. You can also pass --rebase, --no-rebase,
+hint: or --ff-only on the command line to override the configured default per
+hint: invocation.
+fatal: Need to specify how to reconcile divergent branches.
+jun@cloudshell:~ (screen-share-459802)$ 
+jun@cloudshell:~ (screen-share-459802)$ # === マージ結果確認 ===
+git status
+ls -la
+On branch main
+Changes not staged for commit:
+no changes added to commit (use "git add" and/or "git commit -a")
+total 4744
+drwxr-x--- 18 jun  jun     4096 Sep 25 01:37 .
+drwxr-xr-x  4 root root    4096 Sep 10 01:18 ..
+-rw-rw-r--  1 jun  jun    10798 Sep 25 01:21 app.js
+-rw-------  1 jun  jun    39225 Sep 25 01:37 .bash_history
+-rw-r--r--  1 jun  jun      220 Mar 31  2024 .bash_logout
+-rw-r--r--  1 jun  jun     3809 Sep  7 07:21 .bashrc
+drwxrwxr-x  7 jun  jun     4096 Sep 16 04:43 .cache
+drwx------  4 jun  jun     4096 Sep 10 01:29 .codeoss
+drwxr-xr-x  5 jun  jun     4096 Sep 17 08:10 .config
+drwxrwxr-x  3 jun  jun     4096 Sep 10 01:51 .docker
+-rw-rw-r--  1 jun  jun      389 Sep 24 08:57 Dockerfile
+-rw-rw-r--  1 jun  jun       83 Sep 24 04:55 .gcloudignore
+drwxrwxr-x  3 jun  jun     4096 Sep 10 01:18 .gemini
+drwxrwxr-x  8 jun  jun     4096 Sep 25 01:37 .git
+-rw-rw-r--  1 jun  jun      279 Sep 25 01:36 .gitconfig
+-rw-rw-r--  1 jun  jun      269 Sep 25 01:35 .gitignore
+-rw-------  1 jun  jun       20 Sep 25 01:37 .lesshst
+drwxrwxr-x  3 jun  jun     4096 Sep 11 06:17 .local
+drwxrwxr-x  5 jun  jun     4096 Sep 19 07:58 magi-app
+drwxrwxr-x  4 jun  jun     4096 Sep 11 04:06 magi-app.bak.1757563723
+-rw-rw-r--  1 jun  jun   948710 Sep 17 07:19 magi-app.zip
+-rw-rw-r--  1 jun  jun      551 Sep 25 01:30 MAGI_COMPLETE.md
+drwxrwxr-x  3 jun  jun     4096 Sep 24 09:05 magi-system
+drwxrwxr-x  6 jun  jun     4096 Sep 24 03:02 magi-ui
+-rw-rw-r--  1 jun  jun        0 Sep 24 03:42 magi-ui@1.0.0
+-rw-rw-r--  1 jun  jun  3666192 Sep 17 07:19 magi-ui.zip
+-rw-rw-r--  1 jun  jun        0 Sep 24 03:42 node
+drwxrwxr-x 70 jun  jun     4096 Sep 24 04:55 node_modules
+drwxrwxr-x  4 jun  jun     4096 Sep 10 01:18 .npm
+-rw-rw-r--  1 jun  jun      170 Sep 24 08:54 package.json
+-rw-rw-r--  1 jun  jun    29518 Sep 24 04:55 package-lock.json
+-rw-r--r--  1 jun  jun      807 Mar 31  2024 .profile
+drwxrwxr-x  2 jun  jun     4096 Sep 24 04:28 providers
+-rwxr-xr-x  1 jun  jun      913 Sep 25 01:02 README-cloudshell.txt
+-rw-rw-r--  1 jun  jun      988 Sep 25 01:34 README.md
+-rw-rw-r--  1 jun  jun     5359 Sep 24 09:05 server.js
+-rw-rw-r--  1 jun  jun      194 Sep 19 07:54 server.js.bak.1758269312
+-rw-rw-r--  1 jun  jun      633 Sep 19 08:08 server.js.bak.1758269344
+-rw-rw-r--  1 jun  jun     1024 Sep 19 08:06 .server.js.swp
+drwx------  2 jun  jun     4096 Sep 18 07:41 .ssh
+-rw-r--r--  1 jun  jun        0 Sep 10 01:18 .sudo_as_admin_successful
+-rw-rw-r--  1 jun  jun     2074 Sep 10 07:34 svc.yaml
+drwxr-xr-x  2 jun  jun     4096 Sep 10 01:29 .vscode
+-rw-rw-r--  1 jun  jun        0 Sep 11 04:44 以降は
+jun@cloudshell:~ (screen-share-459802)$ 
+jun@cloudshell:~ (screen-share-459802)$ # === プッシュ実行 ===
+git push origin main
+To https://github.com/miroqu369/magi-ui.git
+error: failed to push some refs to 'https://github.com/miroqu369/magi-ui.git'
+hint: Updates were rejected because the tip of your current branch is behind
+hint: its remote counterpart. If you want to integrate the remote changes,
+hint: use 'git pull' before pushing again.
+hint: See the 'Note about fast-forwards' in 'git push --help' for details.
+jun@cloudshell:~ (screen-share-459802)$ 
+# === 再度プルして統合 ===
+git pull origin main --allow-unrelated-histories
+# === マージ戦略設定 ===
+git config pull.rebase false
+# === 再度プルして統合 ===
+git pull origin main --allow-unrelated-histories
+# === 状態確認 ===
+git status
