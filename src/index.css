@@ -1,0 +1,177 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+JP:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* MAGI System - Dark Mode Only */
+    --background: 240 33% 3%;
+    --foreground: 240 10% 95%;
+
+    --card: 240 29% 7%;
+    --card-foreground: 240 10% 95%;
+    --card-glass: 240 29% 11%;
+
+    --popover: 240 29% 7%;
+    --popover-foreground: 240 10% 95%;
+
+    --primary: 191 100% 50%;
+    --primary-foreground: 240 33% 3%;
+
+    --secondary: 255 100% 69%;
+    --secondary-foreground: 240 33% 3%;
+
+    --muted: 240 15% 25%;
+    --muted-foreground: 240 10% 55%;
+
+    --accent: 191 100% 50%;
+    --accent-foreground: 240 33% 3%;
+
+    --destructive: 350 100% 60%;
+    --destructive-foreground: 240 10% 95%;
+
+    --success: 150 100% 50%;
+    --success-foreground: 240 33% 3%;
+
+    --warning: 40 100% 50%;
+    --warning-foreground: 240 33% 3%;
+
+    --border: 240 10% 15%;
+    --border-glow: 191 100% 50%;
+    --input: 240 10% 15%;
+    --ring: 191 100% 50%;
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 240 29% 5%;
+    --sidebar-foreground: 240 10% 95%;
+    --sidebar-primary: 191 100% 50%;
+    --sidebar-primary-foreground: 240 33% 3%;
+    --sidebar-accent: 240 29% 10%;
+    --sidebar-accent-foreground: 240 10% 95%;
+    --sidebar-border: 240 10% 12%;
+    --sidebar-ring: 191 100% 50%;
+
+    /* Glow Effects */
+    --glow-primary: 0 0 30px hsl(191 100% 50% / 0.15);
+    --glow-secondary: 0 0 30px hsl(255 100% 69% / 0.15);
+  }
+
+  .dark {
+    --background: 240 33% 3%;
+    --foreground: 240 10% 95%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    @apply dark;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: 'Inter', 'Noto Sans JP', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  /* Monospace for numbers and data */
+  .font-mono {
+    font-family: 'JetBrains Mono', 'SF Mono', monospace;
+  }
+}
+
+@layer utilities {
+  /* Glass Morphism Effect */
+  .glass {
+    @apply bg-card/70 backdrop-blur-xl border border-border;
+  }
+
+  .glass-hover {
+    @apply hover:border-primary/30 transition-all duration-300;
+  }
+
+  .glass-glow {
+    box-shadow: var(--glow-primary);
+    @apply border-primary/30;
+  }
+
+  /* Text Gradient */
+  .text-gradient {
+    @apply bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent;
+  }
+
+  /* Glow Animation */
+  .glow-pulse {
+    animation: glow-pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes glow-pulse {
+    0%, 100% {
+      box-shadow: 0 0 20px hsl(191 100% 50% / 0.15);
+    }
+    50% {
+      box-shadow: 0 0 40px hsl(191 100% 50% / 0.25);
+    }
+  }
+
+  /* Fade in animation */
+  .fade-in {
+    animation: fade-in 0.3s ease-out;
+  }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Slide in from right */
+  .slide-in-right {
+    animation: slide-in-right 0.3s ease-out;
+  }
+
+  @keyframes slide-in-right {
+    from {
+      opacity: 0;
+      transform: translateX(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  /* Custom scrollbar */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--muted)) transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted));
+    border-radius: 3px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground));
+  }
+}
