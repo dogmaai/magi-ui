@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MAGI System - Role Management</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Courier New', monospace;
+      background: #0a0a0a;
+      color: #00ff00;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    header {
+      border: 1px solid #00ff00;
+      padding: 15px;
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    h1 {
+      font-size: 1.5rem;
+      font-weight: normal;
+    }
+    .nav-links {
+      display: flex;
+      gap: 20px;
+    }
+    .nav-links a {
+      color: #00ff00;
+      text-decoration: none;
+    }
+    .nav-links a:hover {
+      text-decoration: underline;
+    }
+    .status-bar {
+      background: #1a1a1a;
+      border: 1px solid #333;
+      padding: 10px 15px;
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.9rem;
+    }
+    .service-section {
+      border: 1px solid #00ff00;
+      margin-bottom: 20px;
+    }
+    .service-header {
+      background: #001a00;
+      padding: 15px;
+      border-bottom: 1px solid #00ff00;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .service-title {
+      font-size: 1.1rem;
+    }
+    .role-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .role-table th,
+    .role-table td {
+      padding: 12px 15px;
+      text-align: left;
+      border-bottom: 1px solid #333;
+    }
+    .role-table th {
+      background: #0d0d0d;
+      color: #888;
+      font-weight: normal;
+      text-transform: uppercase;
+      font-size: 0.8rem;
+    }
+    .role-table tr:hover {
+      background: #0d1a0d;
+    }
+    .role-name {
+      font-weight: bold;
+      color: #00ffff;
+    }
+    .role-desc {
+      color: #888;
+      font-size: 0.85rem;
+    }
+    select {
+      background: #1a1a1a;
+      color: #00ff00;
+      border: 1px solid #00ff00;
+      padding: 8px 12px;
+      font-family: inherit;
+      font-size: 0.9rem;
+      cursor: pointer;
+      min-width: 180px;
+    }
+    select:focus {
+      outline: none;
+      border-color: #00ffff;
+    }
+    select option {
+      background: #1a1a1a;
+      color: #00ff00;
+    }
+    .toggle-switch {
+      position: relative;
+      width: 50px;
+      height: 24px;
+    }
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: #333;
+      border: 1px solid #555;
+      transition: 0.3s;
+    }
+    .toggle-slider:before {
+      position: absolute;
+      content: "";
+      height: 16px;
+      width: 16px;
+      left: 3px;
+      bottom: 3px;
+      background: #888;
+      transition: 0.3s;
+    }
+    input:checked + .toggle-slider {
+      background: #003300;
+      border-color: #00ff00;
+    }
+    input:checked + .toggle-slider:before {
+      transform: translateX(26px);
+      background: #00ff00;
+    }
+    .btn {
+      background: transparent;
+      border: 1px solid #00ff00;
+      color: #00ff00;
+      padding: 10px 20px;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn:hover {
+      background: #00ff00;
+      color: #000;
+    }
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .btn:disabled:hover {
+      background: transparent;
+      color: #00ff00;
+    }
+    .btn-danger {
+      border-color: #ff4444;
+      color: #ff4444;
+    }
+    .btn-danger:hover {
+      background: #ff4444;
+      color: #000;
+    }
+    .btn-group {
+      display: flex;
+      gap: 10px;
+      padding: 15px;
+      justify-content: flex-end;
+      border-top: 1px solid #333;
+    }
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #888;
+    }
+    .error {
+      background: #1a0000;
+      border: 1px solid #ff4444;
+      color: #ff4444;
+      padding: 15px;
+      margin-bottom: 20px;
+    }
+    .success {
+      background: #001a00;
+      border: 1px solid #00ff00;
+      color: #00ff00;
+      padding: 15px;
+      margin-bottom: 20px;
+    }
+    .modified {
+      background: #1a1a00;
+    }
+    .modified-indicator {
+      color: #ffff00;
+      font-size: 0.8rem;
+      margin-left: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>MAGI System - Role Management</h1>
+      <nav class="nav-links">
+        <a href="/">Dashboard</a>
+        <a href="/admin/roles.html">Roles</a>
+        <a href="/admin/api-status.html">API Status</a>
+      </nav>
+    </header>
+
+    <div class="status-bar">
+      <span id="lastUpdated">Last updated: Loading...</span>
+      <span id="connectionStatus">Connecting...</span>
+    </div>
+
+    <div id="messageContainer"></div>
+    <div id="content">
+      <div class="loading">Loading role configuration...</div>
+    </div>
+  </div>
+
+  <script>
+    const MAGI_STG_URL = 'https://magi-stg-398890937507.asia-northeast1.run.app';
+    let originalRoles = null;
+    let currentRoles = null;
+    let availableProviders = [];
+    let hasChanges = false;
+
+    async function loadRoles() {
+      try {
+        const response = await fetch(`${MAGI_STG_URL}/public/role-assignments`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+        const data = await response.json();
+        originalRoles = JSON.parse(JSON.stringify(data));
+        currentRoles = data;
+        availableProviders = data.available_providers || [];
+
+        document.getElementById('connectionStatus').textContent = 'Connected';
+        document.getElementById('connectionStatus').style.color = '#00ff00';
+        document.getElementById('lastUpdated').textContent =
+          `Last updated: ${data.updated_at || 'Unknown'}`;
+
+        renderRoles();
+      } catch (error) {
+        console.error('Failed to load roles:', error);
+        document.getElementById('connectionStatus').textContent = 'Disconnected';
+        document.getElementById('connectionStatus').style.color = '#ff4444';
+        showMessage('Failed to load roles: ' + error.message, 'error');
+      }
+    }
+
+    function renderRoles() {
+      const content = document.getElementById('content');
+
+      if (!currentRoles?.services) {
+        content.innerHTML = '<div class="error">No role data available</div>';
+        return;
+      }
+
+      let html = '';
+
+      for (const [serviceName, service] of Object.entries(currentRoles.services)) {
+        html += `
+          <div class="service-section">
+            <div class="service-header">
+              <span class="service-title">${service.name} (${serviceName})</span>
+            </div>
+            <table class="role-table">
+              <thead>
+                <tr>
+                  <th>Role</th>
+                  <th>Description</th>
+                  <th>Provider</th>
+                  <th>Model</th>
+                  <th>Enabled</th>
+                </tr>
+              </thead>
+              <tbody>
+        `;
+
+        for (const [roleName, role] of Object.entries(service.roles)) {
+          const isModified = isRoleModified(serviceName, roleName);
+          html += `
+            <tr class="${isModified ? 'modified' : ''}" data-service="${serviceName}" data-role="${roleName}">
+              <td>
+                <span class="role-name">${roleName}</span>
+                ${isModified ? '<span class="modified-indicator">(modified)</span>' : ''}
+              </td>
+              <td class="role-desc">${role.description}</td>
+              <td>
+                <select onchange="updateRole('${serviceName}', '${roleName}', 'provider', this.value)">
+                  ${availableProviders.map(p =>
+                    `<option value="${p.id}" ${p.id === role.provider ? 'selected' : ''}>${p.name}</option>`
+                  ).join('')}
+                </select>
+              </td>
+              <td>
+                <select id="model-${serviceName}-${roleName}" onchange="updateRole('${serviceName}', '${roleName}', 'model', this.value)">
+                  ${getModelsForProvider(role.provider).map(m =>
+                    `<option value="${m}" ${m === role.model ? 'selected' : ''}>${m}</option>`
+                  ).join('')}
+                </select>
+              </td>
+              <td>
+                <label class="toggle-switch">
+                  <input type="checkbox" ${role.enabled ? 'checked' : ''}
+                    onchange="updateRole('${serviceName}', '${roleName}', 'enabled', this.checked)">
+                  <span class="toggle-slider"></span>
+                </label>
+              </td>
+            </tr>
+          `;
+        }
+
+        html += `
+              </tbody>
+            </table>
+          </div>
+        `;
+      }
+
+      html += `
+        <div class="btn-group">
+          <button class="btn btn-danger" onclick="resetToDefault()">Reset to Default</button>
+          <button class="btn" onclick="discardChanges()" ${!hasChanges ? 'disabled' : ''}>Discard Changes</button>
+          <button class="btn" onclick="saveChanges()" ${!hasChanges ? 'disabled' : ''}>Save Changes</button>
+        </div>
+      `;
+
+      content.innerHTML = html;
+    }
+
+    function getModelsForProvider(providerId) {
+      const provider = availableProviders.find(p => p.id === providerId);
+      return provider?.models || [];
+    }
+
+    function isRoleModified(serviceName, roleName) {
+      if (!originalRoles?.services?.[serviceName]?.roles?.[roleName]) return false;
+      const original = originalRoles.services[serviceName].roles[roleName];
+      const current = currentRoles.services[serviceName].roles[roleName];
+      return JSON.stringify(original) !== JSON.stringify(current);
+    }
+
+    function updateRole(serviceName, roleName, field, value) {
+      if (!currentRoles?.services?.[serviceName]?.roles?.[roleName]) return;
+
+      currentRoles.services[serviceName].roles[roleName][field] = value;
+
+      // プロバイダー変更時はモデルも更新
+      if (field === 'provider') {
+        const models = getModelsForProvider(value);
+        currentRoles.services[serviceName].roles[roleName].model = models[0] || '';
+        // モデルセレクトボックスを更新
+        const modelSelect = document.getElementById(`model-${serviceName}-${roleName}`);
+        if (modelSelect) {
+          modelSelect.innerHTML = models.map(m =>
+            `<option value="${m}">${m}</option>`
+          ).join('');
+        }
+      }
+
+      hasChanges = checkForChanges();
+      renderRoles();
+    }
+
+    function checkForChanges() {
+      return JSON.stringify(originalRoles?.services) !== JSON.stringify(currentRoles?.services);
+    }
+
+    function discardChanges() {
+      currentRoles = JSON.parse(JSON.stringify(originalRoles));
+      hasChanges = false;
+      renderRoles();
+      showMessage('Changes discarded', 'success');
+    }
+
+    async function saveChanges() {
+      try {
+        showMessage('Saving changes...', 'success');
+
+        const response = await fetch(`${MAGI_STG_URL}/admin/role-assignments`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Updated-By': 'magi-ui-admin'
+          },
+          body: JSON.stringify({ services: currentRoles.services })
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || `HTTP ${response.status}`);
+        }
+
+        const result = await response.json();
+        originalRoles = JSON.parse(JSON.stringify(currentRoles));
+        hasChanges = false;
+        renderRoles();
+        showMessage('Roles saved successfully! Services will pick up changes on next reload.', 'success');
+
+      } catch (error) {
+        console.error('Failed to save roles:', error);
+        showMessage('Failed to save: ' + error.message, 'error');
+      }
+    }
+
+    async function resetToDefault() {
+      if (!confirm('Are you sure you want to reset all roles to default? This cannot be undone.')) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`${MAGI_STG_URL}/admin/role-assignments/reset`, {
+          method: 'POST'
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || `HTTP ${response.status}`);
+        }
+
+        await loadRoles();
+        showMessage('Roles reset to default successfully!', 'success');
+
+      } catch (error) {
+        console.error('Failed to reset roles:', error);
+        showMessage('Failed to reset: ' + error.message, 'error');
+      }
+    }
+
+    function showMessage(text, type) {
+      const container = document.getElementById('messageContainer');
+      container.innerHTML = `<div class="${type}">${text}</div>`;
+      if (type === 'success') {
+        setTimeout(() => {
+          container.innerHTML = '';
+        }, 5000);
+      }
+    }
+
+    // 初期化
+    loadRoles();
+  </script>
+</body>
+</html>
