@@ -1,178 +1,209 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { GlassCard } from "@/components/common/GlassCard";
-import { StatusBadge } from "@/components/common/StatusBadge";
+import { getLLMConfig, getSpecs, checkServiceHealth } from "@/services/api";
 
-const llmConfigs = [
-  { provider: "Grok", model: "grok-2-latest", status: "active" as const },
-  { provider: "Gemini", model: "gemini-2.0-flash-exp", status: "active" as const },
-  { provider: "Claude", model: "claude-sonnet-4-20250514", status: "active" as const },
-  { provider: "GPT-4", model: "gpt-4o-mini", status: "active" as const },
-  { provider: "Mistral", model: "mistral-large-latest", status: "active" as const },
-  { provider: "Cohere", model: "command-r-plus", status: "active" as const },
-];
+interface LLMModel {
+  provider: string;
+  model: string;
+  temperature: number;
+  role: string;
+  specialty: string;
+}
 
-const targetSymbols = ["AAPL", "NVDA", "GOOGL", "MSFT", "TSLA", "AMZN"];
+interface ServiceHealth {
+  name: string;
+  status: "online" | "offline" | "degraded";
+  version?: string;
+  latency: number;
+}
 
 export default function Settings() {
-  const [autoTrade, setAutoTrade] = useState(false);
-  const [symbols, setSymbols] = useState(targetSymbols);
-  const [editingSymbols, setEditingSymbols] = useState(false);
-  const [symbolInput, setSymbolInput] = useState(targetSymbols.join(", "));
+  const [llmConfig, setLLMConfig] = useState<Record<string, LLMModel>>({});
+  const [services, setServices] = useState<ServiceHealth[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [specsVersion, setSpecsVersion] = useState<string>("");
 
-  const handleSaveSymbols = () => {
-    const newSymbols = symbolInput
-      .split(",")
-      .map((s) => s.trim().toUpperCase())
-      .filter((s) => s.length > 0);
-    setSymbols(newSymbols);
-    setEditingSymbols(false);
-  };
+  useEffect(() => {
+    async function loadData() {
+      try {
+        // Load service health
+        const serviceNames = ["magi-ac", "magi-sys", "magi-stg", "magi-executor", "magi-decision", "magi-moni"];
+        const healthResults = await Promise.all(
+          serviceNames.map(async (name) => {
+            try {
+              const result = await checkServiceHealth(name);
+              return { 
+                name, 
+                status: result.status as "online" | "offline" | "degraded", 
+                latency: result.latency 
+              };
+            } catch {
+              return { name, status: "offline" as const, latency: 0 };
+            }
+          })
+        );
+        setServices(healthResults);
+
+        // Load specs
+        try {
+          const specs = await getSpecs() as any;
+          if (specs.version) setSpecsVersion(specs.version);
+          if (specs.specifications?.["ai-models-config.json"]?.magi_sys) {
+            setLLMConfig(specs.specifications["ai-models-config.json"].magi_sys);
+          }
+        } catch (err) {
+          console.error("Failed to load specs:", err);
+        }
+      } catch (err) {
+        console.error("Failed to load settings:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadData();
+  }, []);
+
+  const llmModels = Object.entries(llmConfig).map(([key, value]) => ({
+    unit: key.toUpperCase(),
+    ...value,
+  }));
 
   return (
     <div className="space-y-6 fade-in">
       <h1 className="text-2xl font-semibold text-foreground">Settings</h1>
 
-      {/* LLM Configuration */}
-      <GlassCard title="LLM Configuration">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="text-left text-xs text-muted-foreground uppercase tracking-wider">
-                <th className="pb-3 pr-4">Provider</th>
-                <th className="pb-3 pr-4">Model</th>
-                <th className="pb-3 pr-4">Status</th>
-                <th className="pb-3 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {llmConfigs.map((config) => (
-                <tr key={config.provider} className="border-t border-border/50">
-                  <td className="py-4 pr-4">
-                    <span className="font-medium text-foreground">
-                      {config.provider}
-                    </span>
-                  </td>
-                  <td className="py-4 pr-4">
-                    <span className="font-mono text-sm text-muted-foreground">
-                      {config.model}
-                    </span>
-                  </td>
-                  <td className="py-4 pr-4">
-                    <StatusBadge
-                      type={config.status === "active" ? "online" : "offline"}
-                    />
-                  </td>
-                  <td className="py-4 text-right">
-                    <button className="text-sm text-primary hover:text-primary/80 transition-colors">
-                      Edit
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </GlassCard>
-
-      {/* API Configuration */}
-      <GlassCard title="API Configuration">
-        <div className="space-y-6">
-          {/* Target Symbols */}
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-sm text-muted-foreground">
-                Target Symbols
-              </span>
-              {!editingSymbols && (
-                <button
-                  onClick={() => setEditingSymbols(true)}
-                  className="text-sm text-primary hover:text-primary/80 transition-colors"
-                >
-                  Edit Symbols
-                </button>
-              )}
-            </div>
-
-            {editingSymbols ? (
-              <div className="flex gap-3">
-                <input
-                  type="text"
-                  value={symbolInput}
-                  onChange={(e) => setSymbolInput(e.target.value)}
-                  className="flex-1 bg-card/50 border border-border rounded-lg px-4 py-2 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
-                />
-                <button
-                  onClick={handleSaveSymbols}
-                  className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90 transition-opacity"
-                >
-                  Save
-                </button>
-                <button
-                  onClick={() => {
-                    setEditingSymbols(false);
-                    setSymbolInput(symbols.join(", "));
-                  }}
-                  className="px-4 py-2 border border-border text-muted-foreground rounded-lg text-sm hover:bg-muted/50 transition-colors"
-                >
-                  Cancel
-                </button>
-              </div>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {symbols.map((symbol) => (
-                  <span
-                    key={symbol}
-                    className="px-3 py-1.5 bg-muted/50 text-foreground font-mono text-sm rounded-lg"
-                  >
-                    {symbol}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Auto Trade Toggle */}
-          <div className="flex items-center justify-between pt-4 border-t border-border/50">
-            <div>
-              <span className="text-sm text-foreground block">Auto-Trade</span>
-              <span className="text-xs text-muted-foreground">
-                Automatically execute trades based on AI consensus
-              </span>
-            </div>
-            <button
-              onClick={() => setAutoTrade(!autoTrade)}
-              className={`relative w-12 h-6 rounded-full transition-colors ${
-                autoTrade ? "bg-primary" : "bg-muted"
-              }`}
-            >
-              <span
-                className={`absolute top-1 w-4 h-4 bg-foreground rounded-full transition-transform ${
-                  autoTrade ? "left-7" : "left-1"
-                }`}
-              />
-            </button>
-          </div>
-        </div>
-      </GlassCard>
-
-      {/* System Information */}
+      {/* System Info */}
       <GlassCard title="System Information">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-          <div className="flex justify-between py-2 border-b border-border/50">
-            <span className="text-muted-foreground">Version</span>
-            <span className="font-mono text-foreground">1.0.0</span>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div>
+            <p className="text-sm text-muted-foreground">Specs Version</p>
+            <p className="text-lg font-semibold text-foreground">{specsVersion || "-"}</p>
           </div>
-          <div className="flex justify-between py-2 border-b border-border/50">
-            <span className="text-muted-foreground">Environment</span>
-            <span className="font-mono text-foreground">Production</span>
+          <div>
+            <p className="text-sm text-muted-foreground">Services</p>
+            <p className="text-lg font-semibold text-foreground">{services.length}</p>
           </div>
-          <div className="flex justify-between py-2 border-b border-border/50">
-            <span className="text-muted-foreground">API Status</span>
-            <StatusBadge type="online" />
+          <div>
+            <p className="text-sm text-muted-foreground">Online</p>
+            <p className="text-lg font-semibold text-green-400">
+              {services.filter(s => s.status === "online").length}
+            </p>
           </div>
-          <div className="flex justify-between py-2 border-b border-border/50">
-            <span className="text-muted-foreground">Last Updated</span>
-            <span className="font-mono text-foreground">2025-12-19</span>
+          <div>
+            <p className="text-sm text-muted-foreground">Region</p>
+            <p className="text-lg font-semibold text-foreground">asia-northeast1</p>
+          </div>
+        </div>
+      </GlassCard>
+
+      {/* Service Status */}
+      <GlassCard title="Service Status">
+        {loading ? (
+          <div className="text-center py-4 text-muted-foreground">Loading...</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-muted-foreground border-b border-border">
+                  <th className="text-left py-2">Service</th>
+                  <th className="text-center py-2">Status</th>
+                  <th className="text-right py-2">Latency</th>
+                </tr>
+              </thead>
+              <tbody>
+                {services.map((svc) => (
+                  <tr key={svc.name} className="border-b border-border/50">
+                    <td className="py-3 font-mono">{svc.name}</td>
+                    <td className="py-3 text-center">
+                      <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                        svc.status === "online" ? "bg-green-400/20 text-green-400" :
+                        svc.status === "degraded" ? "bg-yellow-400/20 text-yellow-400" :
+                        "bg-red-400/20 text-red-400"
+                      }`}>
+                        {svc.status.toUpperCase()}
+                      </span>
+                    </td>
+                    <td className="py-3 text-right font-mono text-muted-foreground">
+                      {svc.latency}ms
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </GlassCard>
+
+      {/* LLM Configuration */}
+      <GlassCard title="LLM Configuration (magi-sys)">
+        {llmModels.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-muted-foreground border-b border-border">
+                  <th className="text-left py-2">Unit</th>
+                  <th className="text-left py-2">Provider</th>
+                  <th className="text-left py-2">Model</th>
+                  <th className="text-center py-2">Temp</th>
+                  <th className="text-left py-2">Role</th>
+                </tr>
+              </thead>
+              <tbody>
+                {llmModels.map((model) => (
+                  <tr key={model.unit} className="border-b border-border/50">
+                    <td className="py-3 font-mono font-semibold text-primary">{model.unit}</td>
+                    <td className="py-3">{model.provider}</td>
+                    <td className="py-3 font-mono text-xs">{model.model}</td>
+                    <td className="py-3 text-center">{model.temperature}</td>
+                    <td className="py-3 text-muted-foreground text-xs">{model.role}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="text-center py-4 text-muted-foreground">
+            {loading ? "Loading..." : "No LLM configuration found"}
+          </div>
+        )}
+      </GlassCard>
+
+      {/* Target Symbols */}
+      <GlassCard title="Monitored Symbols">
+        <div className="flex flex-wrap gap-2">
+          {["AAPL", "NVDA", "GOOGL", "MSFT", "TSLA", "META", "AMZN"].map((symbol) => (
+            <span
+              key={symbol}
+              className="px-3 py-1 bg-primary/20 text-primary rounded-full text-sm font-mono"
+            >
+              {symbol}
+            </span>
+          ))}
+        </div>
+      </GlassCard>
+
+      {/* API Endpoints */}
+      <GlassCard title="API Endpoints">
+        <div className="space-y-2 font-mono text-xs">
+          <div className="flex justify-between py-1 border-b border-border/50">
+            <span className="text-muted-foreground">magi-ui (this)</span>
+            <span className="text-foreground">https://magi-ui-398890937507.asia-northeast1.run.app</span>
+          </div>
+          <div className="flex justify-between py-1 border-b border-border/50">
+            <span className="text-muted-foreground">magi-ac</span>
+            <span className="text-foreground">/api/magi-ac/*</span>
+          </div>
+          <div className="flex justify-between py-1 border-b border-border/50">
+            <span className="text-muted-foreground">magi-sys</span>
+            <span className="text-foreground">/api/magi-sys/*</span>
+          </div>
+          <div className="flex justify-between py-1 border-b border-border/50">
+            <span className="text-muted-foreground">magi-stg</span>
+            <span className="text-foreground">/api/magi-stg/*</span>
+          </div>
+          <div className="flex justify-between py-1">
+            <span className="text-muted-foreground">Constitution</span>
+            <span className="text-foreground">/api/magi-stg/public/constitution</span>
           </div>
         </div>
       </GlassCard>

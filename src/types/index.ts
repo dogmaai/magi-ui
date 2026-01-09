@@ -1,39 +1,5 @@
-// API Endpoints
-export const ENDPOINTS = {
-  MAGI_AC: 'https://magi-ac-398890937507.asia-northeast1.run.app',
-  MAGI_SYS: 'https://magi-app-398890937507.run.app',
-  MAGI_STG: 'https://magi-stg-398890937507.asia-northeast1.run.app',
-  MAGI_DATA: 'https://magi-data-collector-398890937507.asia-northeast1.run.app',
-  MAGI_EXECUTOR: 'https://magi-executor-398890937507.asia-northeast1.run.app'
-};
-
-export const API = {
-  // 証券分析
-  ANALYZE: `${ENDPOINTS.MAGI_AC}/api/analyze`,
-  
-  // ISABEL RAG
-  ISABEL_SEARCH: `${ENDPOINTS.MAGI_AC}/api/isabel/search-v2`,
-  ISABEL_QA: `${ENDPOINTS.MAGI_AC}/api/isabel/qa`,
-  ISABEL_HEALTH: `${ENDPOINTS.MAGI_AC}/api/isabel/health`,
-  
-  // 5AI合議
-  CONSENSUS: `${ENDPOINTS.MAGI_SYS}/api/consensus`,
-  
-  // Alpaca
-  ALPACA_ACCOUNT: `${ENDPOINTS.MAGI_AC}/alpaca/account`,
-  ALPACA_POSITIONS: `${ENDPOINTS.MAGI_AC}/alpaca/positions`,
-  ALPACA_ORDERS: `${ENDPOINTS.MAGI_AC}/alpaca/orders`,
-  ALPACA_ORDER: `${ENDPOINTS.MAGI_AC}/alpaca/order`,
-  ALPACA_QUOTE: `${ENDPOINTS.MAGI_AC}/alpaca/quote`,
-  
-  // LLM設定
-  LLM_CONFIG: `${ENDPOINTS.MAGI_STG}/admin/llm-config`,
-  
-  // ヘルスチェック
-  HEALTH_AC: `${ENDPOINTS.MAGI_AC}/health`,
-  HEALTH_SYS: `${ENDPOINTS.MAGI_SYS}/health`,
-  HEALTH_STG: `${ENDPOINTS.MAGI_STG}/health`
-};
+// Re-export API endpoints from services
+export { ENDPOINTS, API } from '../services/endpoints';
 
 // Vote Types
 export type VoteType = 'BUY' | 'HOLD' | 'SELL';
@@ -54,45 +20,67 @@ export interface AIVote {
   reasoning: string;
 }
 
-// Analysis Result
+// Analysis Result (magi-ac /api/ai-consensus response)
 export interface AnalysisResult {
   symbol: string;
-  consensus: VoteType;
-  confidence: number;
-  votes: AIVote[];
-  isabel?: {
-    sentiment: number;
-    articleCount: number;
-    topics: string[];
+  timestamp: string;
+  prediction_id?: string;
+  algo_analysis?: {
+    volumeAnomaly: { detected: boolean; score: number; reason: string };
+    algoPattern: { pattern: string; confidence: number; description: string };
+    predictedAction: { action: string; confidence: number; reasoning: string };
   };
+  ai_recommendations: {
+    provider: string;
+    action: VoteType;
+    confidence: number;
+    reasoning: string;
+  }[];
+  consensus: {
+    recommendation: VoteType;
+    buy: number;
+    hold: number;
+    sell: number;
+    average_confidence: string;
+  };
+  current_price: number;
 }
 
-// Portfolio
+// Portfolio - Alpaca Account
 export interface Account {
   equity: number;
   cash: number;
-  buyingPower: number;
-  dayPL: number;
-  dayPLPercent: number;
+  buying_power: number;
+  portfolio_value: number;
+  last_equity: number;
+  daytrade_count: number;
 }
 
+// Alpaca Position
 export interface Position {
   symbol: string;
-  qty: number;
-  avgCost: number;
-  currentPrice: number;
-  pl: number;
-  plPercent: number;
+  qty: string;
+  avg_entry_price: string;
+  current_price: string;
+  market_value: string;
+  unrealized_pl: string;
+  unrealized_plpc: string;
+  side: string;
 }
 
+// Alpaca Order
 export interface Order {
   id: string;
   symbol: string;
   side: 'buy' | 'sell';
-  qty: number;
-  price: number;
+  qty: string;
+  filled_qty: string;
+  type: string;
   status: string;
-  createdAt: string;
+  created_at: string;
+  filled_at?: string;
+  limit_price?: string;
+  stop_price?: string;
 }
 
 // Chat
@@ -111,19 +99,25 @@ export interface Source {
   score: number;
 }
 
-// Consensus
+// Consensus Response (magi-sys)
 export interface ConsensusResponse {
-  integratedAnswer: string;
-  responses: {
-    unit: string;
-    provider: string;
-    answer: string;
-  }[];
+  final: string;
+  balthasar: string;
+  melchior: string;
+  casper: string;
+  mary: string;
+  sophia: string;
+  metrics: {
+    response_time_ms: number;
+    valid_responses: number;
+  };
 }
 
 // LLM Config
 export interface LLMConfig {
   provider: string;
   model: string;
-  status: 'active' | 'inactive';
+  temperature: number;
+  role: string;
+  specialty: string;
 }

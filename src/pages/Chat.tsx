@@ -1,62 +1,30 @@
 import { useState, useRef, useEffect } from "react";
 import { GlassCard } from "@/components/common/GlassCard";
-import { Loading } from "@/components/common/Loading";
+import { analyzeSentiment, summarizeDocument } from "@/services/api";
 
 interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
   timestamp: Date;
-  sources?: { title: string; source: string; date: string }[];
+  type?: "sentiment" | "summary";
+  data?: any;
 }
 
-const mockMessages: Message[] = [
-  {
-    id: "1",
-    role: "user",
-    content: "What are the latest news about Apple?",
-    timestamp: new Date(Date.now() - 300000),
-  },
-  {
-    id: "2",
-    role: "assistant",
-    content: `Based on recent news articles, here are the key developments for Apple:
-
-1. Q4 earnings exceeded expectations with record services revenue reaching $23.5 billion, representing a 14% year-over-year growth.
-
-2. New AI features announced for iOS 19, including enhanced Siri capabilities and on-device machine learning improvements.
-
-3. Supply chain improvements in Vietnam have reduced manufacturing dependencies, with 25% of iPhones now produced outside China.
-
-4. Apple Vision Pro 2 development is on track for 2025 release with improved display technology and reduced weight.`,
-    timestamp: new Date(Date.now() - 240000),
-    sources: [
-      { title: "Apple Q4 Results", source: "Reuters", date: "2025-12-15" },
-      { title: "iPhone Sales Rise", source: "Bloomberg", date: "2025-12-14" },
-      { title: "Apple AI Strategy", source: "TechCrunch", date: "2025-12-13" },
-    ],
-  },
-];
-
-const symbols = ["AAPL", "NVDA", "GOOGL", "MSFT", "TSLA", "AMZN"];
-
 export default function Chat() {
-  const [selectedSymbol, setSelectedSymbol] = useState("AAPL");
-  const [messages, setMessages] = useState<Message[]>(mockMessages);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [symbol, setSymbol] = useState("AAPL");
+  const [mode, setMode] = useState<"sentiment" | "summary">("sentiment");
+  const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
   useEffect(() => {
-    scrollToBottom();
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const handleSend = async () => {
-    if (!input.trim() || isLoading) return;
+  async function handleSubmit() {
+    if (!input.trim()) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -67,134 +35,167 @@ export default function Chat() {
 
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
-    setIsLoading(true);
+    setLoading(true);
 
-    // Simulate API response
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    try {
+      let response: any;
+      let assistantContent: string;
 
-    const assistantMessage: Message = {
-      id: (Date.now() + 1).toString(),
-      role: "assistant",
-      content: `Based on my analysis of recent documents and news for ${selectedSymbol}, here is the relevant information regarding your query about "${input}":
+      if (mode === "sentiment") {
+        response = await analyzeSentiment(symbol, input);
+        assistantContent = formatSentimentResponse(response);
+      } else {
+        response = await summarizeDocument(symbol, input);
+        assistantContent = formatSummaryResponse(response);
+      }
 
-The current market sentiment appears positive with strong institutional support. Technical indicators suggest continued momentum, though volatility may increase in the short term.
+      const assistantMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: assistantContent,
+        timestamp: new Date(),
+        type: mode,
+        data: response,
+      };
 
-I found 8 relevant sources that support this analysis.`,
-      timestamp: new Date(),
-      sources: [
-        { title: "Market Analysis Report", source: "MarketWatch", date: "2025-12-18" },
-        { title: "Sector Overview", source: "Financial Times", date: "2025-12-17" },
-      ],
-    };
-
-    setMessages((prev) => [...prev, assistantMessage]);
-    setIsLoading(false);
-  };
-
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
+      setMessages((prev) => [...prev, assistantMessage]);
+    } catch (err) {
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: "Sorry, I encountered an error processing your request. Please try again.",
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+      console.error(err);
+    } finally {
+      setLoading(false);
     }
-  };
+  }
+
+  function formatSentimentResponse(data: any): string {
+    if (data.error) return `Error: ${data.error}`;
+    
+    const sentiment = data.sentiment || data;
+    const score = sentiment.score || sentiment.sentiment_score || 0;
+    const label = score > 0.3 ? "Positive 📈" : score < -0.3 ? "Negative 📉" : "Neutral ➡️";
+    
+    return `**Sentiment Analysis for ${symbol}**\n\n` +
+           `**Overall Sentiment:** ${label}\n` +
+           `**Score:** ${(score * 100).toFixed(1)}%\n\n` +
+           `${sentiment.summary || sentiment.analysis || "Analysis complete."}`;
+  }
+
+  function formatSummaryResponse(data: any): string {
+    if (data.error) return `Error: ${data.error}`;
+    
+    return `**Document Summary for ${symbol}**\n\n` +
+           `${data.summary || data.text || "Summary generated."}`;
+  }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-5rem)] fade-in">
+    <div className="h-[calc(100vh-8rem)] flex flex-col fade-in">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-semibold text-foreground">ISABEL Chat</h1>
-        <select
-          value={selectedSymbol}
-          onChange={(e) => setSelectedSymbol(e.target.value)}
-          className="px-4 py-2 bg-card border border-border rounded-lg text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary"
-        >
-          {symbols.map((sym) => (
-            <option key={sym} value={sym}>
-              {sym}
-            </option>
-          ))}
-        </select>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">Symbol:</span>
+            <input
+              type="text"
+              value={symbol}
+              onChange={(e) => setSymbol(e.target.value.toUpperCase())}
+              className="w-20 px-2 py-1 bg-background/50 border border-border rounded text-sm text-foreground"
+            />
+          </div>
+          <div className="flex gap-1">
+            <button
+              onClick={() => setMode("sentiment")}
+              className={`px-3 py-1 rounded text-sm ${
+                mode === "sentiment" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+              }`}
+            >
+              Sentiment
+            </button>
+            <button
+              onClick={() => setMode("summary")}
+              className={`px-3 py-1 rounded text-sm ${
+                mode === "summary" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+              }`}
+            >
+              Summary
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Messages */}
       <GlassCard className="flex-1 overflow-hidden flex flex-col">
-        <div className="flex-1 overflow-y-auto scrollbar-thin p-4 space-y-4">
-          {messages.map((message) => (
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {messages.length === 0 && (
+            <div className="text-center text-muted-foreground py-12">
+              <p className="text-lg">Welcome to ISABEL Chat</p>
+              <p className="text-sm mt-2">
+                Paste news articles or text for {mode === "sentiment" ? "sentiment analysis" : "summarization"}
+              </p>
+            </div>
+          )}
+          
+          {messages.map((msg) => (
             <div
-              key={message.id}
-              className={`flex ${
-                message.role === "user" ? "justify-end" : "justify-start"
-              }`}
+              key={msg.id}
+              className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
             >
               <div
-                className={`max-w-[80%] rounded-lg p-4 ${
-                  message.role === "user"
-                    ? "bg-primary/20 border border-primary/30"
-                    : "bg-muted/30 border border-border"
+                className={`max-w-[80%] p-4 rounded-lg ${
+                  msg.role === "user"
+                    ? "bg-primary/20 border border-primary/50"
+                    : "bg-secondary/20 border border-secondary/50"
                 }`}
               >
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-medium text-muted-foreground">
-                    {message.role === "user" ? "You" : "ISABEL"}
-                  </span>
-                  <span className="text-xs text-muted-foreground/60">
-                    {message.timestamp.toLocaleTimeString("en-US", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </span>
-                </div>
-                <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
-                  {message.content}
+                <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                <p className="text-xs text-muted-foreground mt-2">
+                  {msg.timestamp.toLocaleTimeString()}
                 </p>
-                {message.sources && message.sources.length > 0 && (
-                  <div className="mt-4 pt-3 border-t border-border/50">
-                    <span className="text-xs text-muted-foreground block mb-2">
-                      Sources:
-                    </span>
-                    <div className="space-y-2">
-                      {message.sources.map((source, index) => (
-                        <div
-                          key={index}
-                          className="flex items-center justify-between text-xs bg-background/50 rounded px-3 py-2"
-                        >
-                          <span className="text-foreground">{source.title}</span>
-                          <div className="flex items-center gap-2 text-muted-foreground">
-                            <span>{source.source}</span>
-                            <span>{source.date}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
           ))}
-          {isLoading && (
+          
+          {loading && (
             <div className="flex justify-start">
-              <div className="bg-muted/30 border border-border rounded-lg p-4">
-                <Loading size="sm" />
+              <div className="bg-secondary/20 border border-secondary/50 p-4 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
+                  <div className="w-2 h-2 bg-primary rounded-full animate-pulse delay-100" />
+                  <div className="w-2 h-2 bg-primary rounded-full animate-pulse delay-200" />
+                  <span className="text-sm text-muted-foreground ml-2">ISABEL is analyzing...</span>
+                </div>
               </div>
             </div>
           )}
+          
           <div ref={messagesEndRef} />
         </div>
 
         {/* Input */}
-        <div className="border-t border-border p-4">
-          <div className="flex gap-3">
-            <input
-              type="text"
+        <div className="p-4 border-t border-border">
+          <div className="flex gap-2">
+            <textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder={`Ask about ${selectedSymbol}...`}
-              className="flex-1 bg-card/50 border border-border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSubmit();
+                }
+              }}
+              placeholder={`Paste text for ${mode} analysis...`}
+              rows={2}
+              className="flex-1 px-4 py-2 bg-background/50 border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary resize-none"
             />
             <button
-              onClick={handleSend}
-              disabled={!input.trim() || isLoading}
-              className="px-6 py-3 bg-gradient-to-r from-primary to-secondary text-primary-foreground rounded-lg font-medium text-sm hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={handleSubmit}
+              disabled={loading || !input.trim()}
+              className="px-6 py-2 bg-primary text-primary-foreground rounded-lg font-semibold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               Send
             </button>

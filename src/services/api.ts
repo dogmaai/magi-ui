@@ -11,11 +11,12 @@ async function apiCall<T>(url: string, options: RequestInit = {}): Promise<T> {
   });
 
   if (!response.ok) {
-    throw new Error('API Error: ' + response.status + ' ' + response.statusText);
+    const errorText = await response.text();
+    throw new Error(`API Error ${response.status}: ${errorText}`);
   }
 
-  return response.json();
-}
+  return response.json();}
+
 
 // Health check for all services
 export async function checkServiceHealth(serviceName: string): Promise<{ status: string; latency: number }> {
@@ -23,7 +24,10 @@ export async function checkServiceHealth(serviceName: string): Promise<{ status:
     'magi-ac': API.HEALTH_AC,
     'magi-sys': API.HEALTH_SYS,
     'magi-stg': API.HEALTH_STG,
-    'magi-exec': API.HEALTH_EXECUTOR,
+    'magi-executor': API.HEALTH_EXECUTOR,
+    'magi-decision': API.HEALTH_DECISION,
+    'magi-moni': API.HEALTH_MONI,
+    'magi-risk': API.HEALTH_RISK,
   };
 
   const url = healthUrls[serviceName];
@@ -31,14 +35,17 @@ export async function checkServiceHealth(serviceName: string): Promise<{ status:
 
   const start = Date.now();
   try {
-    await fetch(url);
-    return { status: 'online', latency: Date.now() - start };
+    const response = await fetch(url);
+    if (response.ok) {
+      return { status: 'online', latency: Date.now() - start };
+    }
+    return { status: 'degraded', latency: Date.now() - start };
   } catch {
     return { status: 'offline', latency: 0 };
   }
 }
 
-// Stock Analysis (4AI)
+// Stock Analysis - uses /api/analyze (NOT /api/ai-consensus)
 export async function analyzeStock(symbol: string) {
   return apiCall(API.ANALYZE, {
     method: 'POST',
@@ -46,27 +53,47 @@ export async function analyzeStock(symbol: string) {
   });
 }
 
-// ISABEL RAG Q&A
-export async function askIsabel(question: string, symbol: string) {
-  return apiCall(API.ISABEL_QA, {
+// Technical Analysis
+export async function getTechnical(symbol: string) {
+  return apiCall(`${API.TECHNICAL}/${symbol}`);
+}
+
+// Analysis History
+export async function getAnalysisHistory(symbol: string) {
+  return apiCall(`${API.HISTORY}/${symbol}`);
+}
+
+// Algo Pattern Analysis (v7.0)
+export async function getAlgoPattern(symbol: string) {
+  return apiCall(`${API.ALGO_PATTERN}/${symbol}`);
+}
+
+// Algo Prediction Stats
+export async function getAlgoPredictionStats(days: number = 30) {
+  return apiCall(`${API.ALGO_PREDICTION_STATS}?days=${days}`);
+}
+
+// Document Sentiment (ISABEL)
+export async function analyzeSentiment(symbol: string, text: string) {
+  return apiCall(API.DOCUMENT_SENTIMENT, {
     method: 'POST',
-    body: JSON.stringify({ question, symbol }),
+    body: JSON.stringify({ symbol, text }),
   });
 }
 
-// ISABEL Search
-export async function searchIsabel(query: string, symbol: string) {
-  return apiCall(API.ISABEL_SEARCH, {
+// Document Summarize (ISABEL)
+export async function summarizeDocument(symbol: string, text: string) {
+  return apiCall(API.DOCUMENT_SUMMARIZE, {
     method: 'POST',
-    body: JSON.stringify({ query, symbol }),
+    body: JSON.stringify({ symbol, text }),
   });
 }
 
-// 5AI Consensus
-export async function getConsensus(question: string, mode: string = 'integration') {
+// 5AI Consensus (magi-sys)
+export async function getConsensus(prompt: string, mode: string = 'integration') {
   return apiCall(API.CONSENSUS, {
     method: 'POST',
-    body: JSON.stringify({ question, mode }),
+    body: JSON.stringify({ prompt, meta: { mode } }),
   });
 }
 
@@ -87,14 +114,34 @@ export async function getAlpacaOrders() {
 
 // Alpaca Quote
 export async function getAlpacaQuote(symbol: string) {
-  return apiCall(API.ALPACA_QUOTE + '/' + symbol);
+  return apiCall(`${API.ALPACA_QUOTE}/${symbol}`);
 }
 
-// Place Order
-export async function placeOrder(symbol: string, qty: number, side: 'buy' | 'sell') {
-  return apiCall(API.ALPACA_ORDER, {
+// Place Trade Order
+export async function placeTrade(symbol: string, qty: number, side: 'buy' | 'sell') {
+  return apiCall(API.ALPACA_TRADE, {
     method: 'POST',
-    body: JSON.stringify({ symbol, qty, side, type: 'market', time_in_force: 'day' }),
+    body: JSON.stringify({ symbol, qty, side }),
+  });
+}
+
+// Place Bracket Order
+export async function placeBracketOrder(
+  symbol: string,
+  qty: number,
+  side: 'buy' | 'sell',
+  takeProfit: number,
+  stopLoss: number
+) {
+  return apiCall(API.ALPACA_BRACKET, {
+    method: 'POST',
+    body: JSON.stringify({
+      symbol,
+      qty,
+      side,
+      take_profit: takeProfit,
+      stop_loss: stopLoss,
+    }),
   });
 }
 
@@ -104,14 +151,72 @@ export async function getLLMConfig() {
 }
 
 export async function updateLLMConfig(provider: string, config: { model?: string; temperature?: number }) {
-  return apiCall(API.LLM_CONFIG + '/' + provider, {
+  return apiCall(`${API.LLM_CONFIG}/${provider}`, {
     method: 'PUT',
     body: JSON.stringify(config),
   });
 }
 
-export async function toggleLLMProvider(provider: string) {
-  return apiCall(API.LLM_CONFIG + '/' + provider + '/toggle', {
+// Get System Specs
+export async function getSpecs() {
+  return apiCall(API.SPECS);
+}
+
+// Auto Trading
+export async function getAutoTradeConfig() {
+  return apiCall(API.AUTO_TRADE_CONFIG);
+}
+
+export async function runAutoTrade(symbols?: string[]) {
+  return apiCall(API.AUTO_TRADE, {
     method: 'POST',
+    body: JSON.stringify({ symbols }),
   });
+}
+
+// Get Constitution
+export async function getConstitution() {
+  return apiCall(API.CONSTITUTION);
+}
+// Risk Manager Dashboard
+export async function getRiskDashboard() {
+  return apiCall(API.RISK_DASHBOARD);
+}
+
+// Risk Validation
+export async function validateTrade(symbol: string, qty: number, price: number, side: 'buy' | 'sell') {
+  return apiCall(API.RISK_VALIDATE, {
+    method: 'POST',
+    body: JSON.stringify({ symbol, qty, price, side }),
+  });
+}
+
+// Risk Config
+export async function getRiskConfig() {
+  return apiCall(API.RISK_CONFIG);
+}
+
+// Killswitch Status
+export async function getKillswitchStatus() {
+  return apiCall(API.KILLSWITCH_STATUS);
+}
+
+// Activate Killswitch
+export async function activateKillswitch(level: number, reason: string) {
+  return apiCall(API.KILLSWITCH_ACTIVATE, {
+    method: 'POST',
+    body: JSON.stringify({ level, reason }),
+  });
+}
+
+// Deactivate Killswitch
+export async function deactivateKillswitch(confirmCode: string) {
+  return apiCall(API.KILLSWITCH_DEACTIVATE, {
+    method: 'POST',
+    body: JSON.stringify({ confirmCode }),
+  });
+}
+// Portfolio History for Charts
+export async function getPortfolioHistory(period: string = '1M', timeframe: string = '1D') {
+  return apiCall(`${API.ALPACA_PORTFOLIO_HISTORY}?period=${period}&timeframe=${timeframe}`);
 }

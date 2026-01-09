@@ -1,196 +1,174 @@
 import { useState } from "react";
 import { GlassCard } from "@/components/common/GlassCard";
-import { Loading } from "@/components/common/Loading";
+import { getConsensus } from "@/services/api";
 
 interface AIResponse {
   unit: string;
   provider: string;
-  role: string;
   answer: string;
 }
 
-const mockResponse = {
-  integratedAnswer: `Based on the collective analysis from all MAGI units, investing in AI-focused companies shows strong potential but requires careful consideration of several factors:
+interface ConsensusResult {
+  final?: string;
+  balthasar?: string;
+  melchior?: string;
+  casper?: string;
+  mary?: string;
+  sophia?: string;
+  metrics?: {
+    response_time_ms: number;
+    valid_responses: number;
+  };
+}
 
-1. Market Position: Companies with established AI infrastructure and proprietary data have significant competitive advantages.
-
-2. Risk Factors: Regulatory uncertainty, especially in the EU and China, presents moderate risk. Hardware dependencies on specific chip manufacturers also create supply chain vulnerabilities.
-
-3. Growth Trajectory: The AI market is projected to grow at 37% CAGR through 2030, with enterprise AI adoption accelerating.
-
-4. Recommendation: A balanced approach is advised - focusing on diversified AI exposure through a mix of infrastructure providers, application developers, and emerging leaders. Position sizing should account for volatility.`,
-  responses: [
-    {
-      unit: "BALTHASAR-2",
-      provider: "Grok",
-      role: "Creative Perspective",
-      answer:
-        "The AI revolution is comparable to the internet boom of the 90s, but with faster adoption curves. Look for companies disrupting traditional industries with AI - healthcare, legal, and education are particularly promising verticals.",
-    },
-    {
-      unit: "MELCHIOR-1",
-      provider: "Gemini",
-      role: "Logical Analysis",
-      answer:
-        "Quantitative analysis shows AI companies outperforming the S&P 500 by 23% YTD. However, P/E ratios are elevated. Focus on companies with proven revenue from AI products rather than those still in R&D phases.",
-    },
-    {
-      unit: "CASPER-3",
-      provider: "Claude",
-      role: "Human-Centric View",
-      answer:
-        "Consider the societal implications of AI investments. Companies with responsible AI practices and clear ethical guidelines tend to have more sustainable long-term growth and face fewer regulatory headwinds.",
-    },
-    {
-      unit: "SOPHIA-5",
-      provider: "Mistral",
-      role: "Strategic Approach",
-      answer:
-        "Geographic diversification is key. While US companies lead in AI development, Asian markets offer growth opportunities. Consider emerging players in India and Southeast Asia for balanced exposure.",
-    },
-    {
-      unit: "MARY-4",
-      provider: "GPT-4",
-      role: "Integration Judge",
-      answer:
-        "Synthesizing all perspectives: AI investment requires a multi-layered approach. Core holdings should be established leaders, with satellite positions in innovative disruptors. Risk management through sector diversification is essential.",
-    },
-  ],
+const unitInfo: Record<string, { name: string; role: string; color: string }> = {
+  balthasar: { name: "BALTHASAR-2", role: "Creative Analysis (Grok)", color: "text-orange-400" },
+  melchior: { name: "MELCHIOR-1", role: "Logical Analysis (Gemini)", color: "text-blue-400" },
+  casper: { name: "CASPER-3", role: "Human-centric Analysis (Claude)", color: "text-purple-400" },
+  mary: { name: "MARY-4", role: "Integration & Judge (GPT-4)", color: "text-green-400" },
+  sophia: { name: "SOPHIA-5", role: "Strategic Analysis (Mistral)", color: "text-cyan-400" },
 };
 
-const modes = [
-  { value: "integration", label: "Integration" },
-  { value: "synthesis", label: "Synthesis" },
-  { value: "consensus", label: "Consensus" },
-];
-
 export default function Consensus() {
-  const [question, setQuestion] = useState("");
-  const [mode, setMode] = useState("integration");
-  const [isLoading, setIsLoading] = useState(false);
-  const [result, setResult] = useState<typeof mockResponse | null>(null);
+  const [prompt, setPrompt] = useState("");
+  const [mode, setMode] = useState<"consensus" | "integration" | "synthesis">("integration");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<ConsensusResult | null>(null);
 
-  const handleSubmit = async () => {
-    if (!question.trim() || isLoading) return;
-    setIsLoading(true);
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 3000));
-    setResult(mockResponse);
-    setIsLoading(false);
-  };
+  async function handleSubmit() {
+    if (!prompt.trim()) return;
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSubmit();
+    setLoading(true);
+    setError(null);
+    setResult(null);
+
+    try {
+      const res = await getConsensus(prompt, mode) as ConsensusResult;
+      setResult(res);
+    } catch (err) {
+      setError("Failed to get consensus. Please try again.");
+      console.error(err);
+    } finally {
+      setLoading(false);
     }
-  };
+  }
+
+  const aiResponses = result ? [
+    { key: "balthasar", content: result.balthasar },
+    { key: "melchior", content: result.melchior },
+    { key: "casper", content: result.casper },
+    { key: "sophia", content: result.sophia },
+    { key: "mary", content: result.mary },
+  ].filter(r => r.content) : [];
 
   return (
     <div className="space-y-6 fade-in">
-      <h1 className="text-2xl font-semibold text-foreground">
-        MAGI Consensus Q&A
-      </h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold text-foreground">5AI Consensus</h1>
+        {result?.metrics && (
+          <span className="text-sm text-muted-foreground">
+            {result.metrics.valid_responses} AIs responded in {result.metrics.response_time_ms}ms
+          </span>
+        )}
+      </div>
 
-      {/* Mode Selection */}
+      {/* Input */}
       <GlassCard>
-        <div className="flex flex-col sm:flex-row gap-4 mb-4">
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">Mode:</span>
+        <div className="space-y-4">
+          <textarea
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            placeholder="Ask a question for 5 AI consensus analysis..."
+            rows={4}
+            className="w-full px-4 py-3 bg-background/50 border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+          />
+          
+          <div className="flex items-center justify-between">
             <div className="flex gap-2">
-              {modes.map((m) => (
+              {(["consensus", "integration", "synthesis"] as const).map((m) => (
                 <button
-                  key={m.value}
-                  onClick={() => setMode(m.value)}
-                  className={`px-4 py-2 text-sm rounded-lg transition-colors ${
-                    mode === m.value
-                      ? "bg-primary/20 text-primary border border-primary/30"
-                      : "bg-muted/30 text-muted-foreground border border-transparent hover:bg-muted/50"
+                  key={m}
+                  onClick={() => setMode(m)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    mode === m
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground hover:bg-muted/80"
                   }`}
                 >
-                  {m.label}
+                  {m.charAt(0).toUpperCase() + m.slice(1)}
                 </button>
               ))}
             </div>
+            
+            <button
+              onClick={handleSubmit}
+              disabled={loading || !prompt.trim()}
+              className="px-6 py-2 bg-primary text-primary-foreground rounded-lg font-semibold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {loading ? "Processing..." : "Get Consensus"}
+            </button>
           </div>
-        </div>
-
-        <div className="flex gap-3">
-          <input
-            type="text"
-            value={question}
-            onChange={(e) => setQuestion(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder="Enter your question..."
-            className="flex-1 bg-card/50 border border-border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
-          />
-          <button
-            onClick={handleSubmit}
-            disabled={!question.trim() || isLoading}
-            className="px-6 py-3 bg-gradient-to-r from-primary to-secondary text-primary-foreground rounded-lg font-medium text-sm hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Submit
-          </button>
         </div>
       </GlassCard>
 
-      {isLoading && (
-        <GlassCard>
-          <div className="flex flex-col items-center justify-center py-12">
-            <Loading size="lg" />
-            <p className="text-muted-foreground mt-4 text-sm">
-              Gathering 5AI consensus...
-            </p>
-            <div className="flex gap-2 mt-2">
-              {["BALTHASAR", "MELCHIOR", "CASPER", "SOPHIA", "MARY"].map(
-                (name, i) => (
-                  <span
-                    key={name}
-                    className="text-xs text-muted-foreground/60 animate-pulse"
-                    style={{ animationDelay: `${i * 200}ms` }}
-                  >
-                    {name}
-                  </span>
-                )
-              )}
-            </div>
+      {/* Mode Description */}
+      <div className="text-sm text-muted-foreground">
+        <span className="font-semibold text-foreground">Mode: </span>
+        {mode === "consensus" && "Individual responses - majority vote decides"}
+        {mode === "integration" && "GPT-4 synthesizes all responses into unified answer"}
+        {mode === "synthesis" && "Create new insights from combined perspectives"}
+      </div>
+
+      {error && (
+        <div className="p-4 bg-red-400/20 border border-red-400/50 rounded-lg text-red-400">
+          {error}
+        </div>
+      )}
+
+      {/* Integrated Answer */}
+      {result?.final && (
+        <GlassCard title="Integrated Answer" glow>
+          <div className="prose prose-invert max-w-none">
+            <p className="text-foreground whitespace-pre-wrap">{result.final}</p>
           </div>
         </GlassCard>
       )}
 
-      {result && !isLoading && (
-        <>
-          {/* Integrated Answer */}
-          <GlassCard title="Integrated Answer (MARY-4)" glow>
-            <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
-              {result.integratedAnswer}
-            </p>
-          </GlassCard>
-
-          {/* Individual Responses */}
-          <div>
-            <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4">
-              Individual Responses
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {result.responses.map((response) => (
-                <GlassCard key={response.unit}>
+      {/* Individual AI Responses */}
+      {aiResponses.length > 0 && (
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold text-foreground">Individual AI Responses</h2>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {aiResponses.map(({ key, content }) => {
+              const info = unitInfo[key];
+              return (
+                <GlassCard key={key}>
                   <div className="mb-3">
-                    <span className="text-sm font-medium text-foreground block">
-                      {response.unit}
+                    <span className={`font-mono font-bold ${info?.color || "text-foreground"}`}>
+                      {info?.name || key}
                     </span>
-                    <span className="text-xs text-muted-foreground">
-                      {response.provider} / {response.role}
-                    </span>
+                    <p className="text-xs text-muted-foreground">{info?.role || ""}</p>
                   </div>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    {response.answer}
+                  <p className="text-sm text-foreground/90 whitespace-pre-wrap line-clamp-6">
+                    {content}
                   </p>
                 </GlassCard>
-              ))}
-            </div>
+              );
+            })}
           </div>
-        </>
+        </div>
+      )}
+
+      {!result && !loading && (
+        <GlassCard>
+          <div className="text-center py-12 text-muted-foreground">
+            <p className="text-lg">Ask any question to get insights from 5 AI models</p>
+            <p className="text-sm mt-2">
+              Examples: "AIの未来について分析して", "ビットコインの長期投資価値は？"
+            </p>
+          </div>
+        </GlassCard>
       )}
     </div>
   );

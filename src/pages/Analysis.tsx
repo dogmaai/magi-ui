@@ -1,268 +1,247 @@
 import { useState } from "react";
 import { GlassCard } from "@/components/common/GlassCard";
-import { StatusBadge } from "@/components/common/StatusBadge";
-import { Loading } from "@/components/common/Loading";
-import { Input } from "@/components/common/Input";
-import { VoteType } from "@/types";
 import { StockPriceChart } from "@/components/charts/StockPriceChart";
 import { VoteDistributionChart } from "@/components/charts/VoteDistributionChart";
+import { analyzeStock, getAlpacaQuote } from "@/services/api";
 
-const quickSymbols = ["AAPL", "NVDA", "GOOGL", "MSFT", "TSLA", "AMZN"];
-
-interface AIVote {
-  unit: string;
+interface AIRecommendation {
   provider: string;
-  vote: VoteType;
+  action: string;
   confidence: number;
   reasoning: string;
 }
 
-const mockPriceData = [
-  { date: "9:30", price: 248.5 },
-  { date: "10:00", price: 249.2 },
-  { date: "10:30", price: 248.8 },
-  { date: "11:00", price: 250.1 },
-  { date: "11:30", price: 251.3 },
-  { date: "12:00", price: 250.8 },
-  { date: "12:30", price: 251.5 },
-  { date: "13:00", price: 252.1 },
-  { date: "13:30", price: 251.8 },
-  { date: "14:00", price: 253.2 },
-  { date: "14:30", price: 252.9 },
-  { date: "15:00", price: 254.1 },
-  { date: "15:30", price: 254.67 },
-];
+interface AnalysisResult {
+  symbol: string;
+  timestamp: string;
+  current_price?: number;
+  financialData?: {
+    currentPrice: number;
+    previousClose: number;
+  };
+  ai_recommendations?: AIRecommendation[];
+  consensus?: {
+    recommendation: string;
+    buy: number;
+    hold: number;
+    sell: number;
+    average_confidence: string;
+  };
+  algo_analysis?: {
+    volumeAnomaly: { detected: boolean; score: number; reason: string };
+    algoPattern: { pattern: string; confidence: number; description: string };
+    predictedAction: { action: string; confidence: number; reasoning: string };
+  };
+}
 
-const mockVoteDistribution = [
-  { name: "BUY", value: 75, color: "hsl(142, 71%, 45%)" },
-  { name: "HOLD", value: 25, color: "hsl(48, 96%, 53%)" },
-  { name: "SELL", value: 0, color: "hsl(0, 84%, 60%)" },
-];
+const providerColors: Record<string, string> = {
+  grok: "text-orange-400",
+  gemini: "text-blue-400",
+  claude: "text-purple-400",
+  mistral: "text-cyan-400",
+};
 
-const mockAnalysis = {
-  consensus: "BUY" as VoteType,
-  confidence: 75,
-  priceData: mockPriceData,
-  voteDistribution: mockVoteDistribution,
-  votes: [
-    {
-      unit: "Unit-B2",
-      provider: "Grok",
-      vote: "BUY" as VoteType,
-      confidence: 85,
-      reasoning:
-        "Trend analysis shows strong upward momentum. Technical indicators suggest continued bullish sentiment with RSI at healthy levels.",
-    },
-    {
-      unit: "Unit-M1",
-      provider: "Gemini",
-      vote: "BUY" as VoteType,
-      confidence: 70,
-      reasoning:
-        "Financial data indicates solid fundamentals. Revenue growth exceeds market expectations with strong margin improvement.",
-    },
-    {
-      unit: "Unit-C3",
-      provider: "Claude",
-      vote: "HOLD" as VoteType,
-      confidence: 60,
-      reasoning:
-        "ESG concerns and regulatory challenges present moderate risk. Recommend cautious approach despite positive financials.",
-    },
-    {
-      unit: "Unit-R4",
-      provider: "Mistral",
-      vote: "BUY" as VoteType,
-      confidence: 80,
-      reasoning:
-        "Risk assessment favorable. Market position remains dominant with significant competitive advantages.",
-    },
-  ],
-  isabel: {
-    sentiment: 0.72,
-    articleCount: 15,
-    topics: ["Q4 earnings", "iPhone sales", "AI strategy"],
-  },
+const providerUnits: Record<string, string> = {
+  grok: "BALTHASAR-2",
+  gemini: "MELCHIOR-1",
+  claude: "CASPER-3",
+  mistral: "SOPHIA-5",
 };
 
 export default function Analysis() {
   const [symbol, setSymbol] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [result, setResult] = useState<typeof mockAnalysis | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [quote, setQuote] = useState<{ AskPrice: number; BidPrice: number } | null>(null);
 
-  const handleAnalyze = async () => {
+  async function handleAnalyze() {
     if (!symbol.trim()) return;
-    setIsLoading(true);
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    setResult(mockAnalysis);
-    setIsLoading(false);
-  };
+    
+    setLoading(true);
+    setError(null);
+    setResult(null);
 
-  const handleQuickSelect = (sym: string) => {
-    setSymbol(sym);
-  };
+    try {
+      // Get quote first
+      const quoteRes = await getAlpacaQuote(symbol.toUpperCase()) as { ok: boolean; data: any };
+      if (quoteRes.ok) {
+        setQuote(quoteRes.data);
+      }
+
+      // Run analysis
+      const analysisRes = await analyzeStock(symbol.toUpperCase()) as AnalysisResult;
+      setResult(analysisRes);
+    } catch (err) {
+      setError("Analysis failed. Please try again.");
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const voteData = result?.consensus ? [
+    { name: "BUY", value: result.consensus.buy, color: "#4ade80" },
+    { name: "HOLD", value: result.consensus.hold, color: "#facc15" },
+    { name: "SELL", value: result.consensus.sell, color: "#f87171" },
+  ].filter(v => v.value > 0) : [];
 
   return (
     <div className="space-y-6 fade-in">
       <h1 className="text-2xl font-semibold text-foreground">Stock Analysis</h1>
 
-      {/* Search Section */}
+      {/* Search */}
       <GlassCard>
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="flex-1">
-            <Input
-              placeholder="Enter symbol (e.g., AAPL)"
-              value={symbol}
-              onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-              className="font-mono"
-            />
-          </div>
+        <div className="flex gap-4">
+          <input
+            type="text"
+            value={symbol}
+            onChange={(e) => setSymbol(e.target.value.toUpperCase())}
+            onKeyDown={(e) => e.key === "Enter" && handleAnalyze()}
+            placeholder="Enter symbol (e.g., AAPL)"
+            className="flex-1 px-4 py-2 bg-background/50 border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+          />
           <button
             onClick={handleAnalyze}
-            disabled={!symbol.trim() || isLoading}
-            className="px-6 py-2 bg-gradient-to-r from-primary to-secondary text-primary-foreground rounded-lg font-medium text-sm hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={loading || !symbol.trim()}
+            className="px-6 py-2 bg-primary text-primary-foreground rounded-lg font-semibold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {isLoading ? <Loading size="sm" /> : "Analyze"}
+            {loading ? "Analyzing..." : "Analyze"}
           </button>
-        </div>
-
-        <div className="mt-4 flex flex-wrap gap-2">
-          <span className="text-xs text-muted-foreground">Quick Select:</span>
-          {quickSymbols.map((sym) => (
-            <button
-              key={sym}
-              onClick={() => handleQuickSelect(sym)}
-              className="px-3 py-1 text-xs font-mono border border-border rounded-md hover:bg-muted/50 hover:border-primary/30 transition-colors"
-            >
-              {sym}
-            </button>
-          ))}
         </div>
       </GlassCard>
 
-      {isLoading && (
-        <GlassCard>
-          <div className="flex flex-col items-center justify-center py-12">
-            <Loading size="lg" />
-            <p className="text-muted-foreground mt-4 text-sm">
-              Analyzing {symbol}...
-            </p>
-            <p className="text-muted-foreground/60 text-xs mt-1">
-              Gathering 4AI consensus
-            </p>
-          </div>
-        </GlassCard>
+      {error && (
+        <div className="p-4 bg-red-400/20 border border-red-400/50 rounded-lg text-red-400">
+          {error}
+        </div>
       )}
 
-      {result && !isLoading && (
+      {result && (
         <>
-          {/* Stock Price Chart */}
-          <GlassCard title={`${symbol} - Intraday Price`}>
-            <StockPriceChart data={result.priceData} symbol={symbol} />
-          </GlassCard>
-
-          {/* Consensus Result */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <GlassCard glow className="lg:col-span-2">
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                  <span className="text-sm text-muted-foreground">Consensus:</span>
-                  <StatusBadge type={result.consensus} className="text-lg px-4 py-1" />
+          {/* Stock Info */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <GlassCard className="lg:col-span-2" glow>
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="text-3xl font-bold text-foreground">{result.symbol}</h2>
+                  <p className="text-muted-foreground">
+                    {new Date(result.timestamp).toLocaleString()}
+                  </p>
                 </div>
-                <div className="flex items-center gap-4">
-                  <span className="text-sm text-muted-foreground">Confidence:</span>
-                  <div className="flex items-center gap-3">
-                    <div className="w-32 h-2 bg-muted rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-gradient-to-r from-primary to-secondary rounded-full transition-all duration-500"
-                        style={{ width: `${result.confidence}%` }}
-                      />
+                <div className="text-right">
+                  <p className="text-3xl font-bold text-primary">
+                    ${(result.current_price || result.financialData?.currentPrice || quote?.BidPrice || 0).toFixed(2)}
+                  </p>
+                  {quote && (
+                    <p className="text-sm text-muted-foreground">
+                      Bid: ${quote.BidPrice.toFixed(2)} / Ask: ${quote.AskPrice.toFixed(2)}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Consensus Result */}
+              {result.consensus && (
+                <div className={`p-4 rounded-lg ${
+                  result.consensus.recommendation === "BUY" ? "bg-green-400/20 border border-green-400/50" :
+                  result.consensus.recommendation === "SELL" ? "bg-red-400/20 border border-red-400/50" :
+                  "bg-yellow-400/20 border border-yellow-400/50"
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground">4AI Consensus</p>
+                      <p className={`text-2xl font-bold ${
+                        result.consensus.recommendation === "BUY" ? "text-green-400" :
+                        result.consensus.recommendation === "SELL" ? "text-red-400" :
+                        "text-yellow-400"
+                      }`}>
+                        {result.consensus.recommendation}
+                      </p>
                     </div>
-                    <span className="font-mono text-foreground">
-                      {result.confidence}%
-                    </span>
+                    <div className="text-right">
+                      <p className="text-sm text-muted-foreground">Confidence</p>
+                      <p className="text-2xl font-bold text-foreground">
+                        {(parseFloat(result.consensus.average_confidence) * 100).toFixed(0)}%
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </GlassCard>
 
+            {/* Vote Distribution */}
             <GlassCard title="Vote Distribution">
-              <VoteDistributionChart data={result.voteDistribution} />
+              {voteData.length > 0 ? (
+                <VoteDistributionChart data={voteData} />
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">No vote data</div>
+              )}
             </GlassCard>
           </div>
 
-          {/* AI Votes Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {result.votes.map((vote) => (
-              <GlassCard key={vote.unit}>
-                <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <span className="text-sm font-medium text-foreground">
-                      {vote.unit}
-                    </span>
-                    <span className="text-xs text-muted-foreground ml-2">
-                      ({vote.provider})
-                    </span>
+          {/* AI Recommendations */}
+          {result.ai_recommendations && (
+            <GlassCard title="AI Recommendations">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {result.ai_recommendations.map((rec) => (
+                  <div key={rec.provider} className="p-4 bg-background/50 rounded-lg border border-border">
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <span className={`font-mono font-bold ${providerColors[rec.provider] || "text-foreground"}`}>
+                          {providerUnits[rec.provider] || rec.provider}
+                        </span>
+                        <span className="text-xs text-muted-foreground ml-2">({rec.provider})</span>
+                      </div>
+                      <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                        rec.action === "BUY" ? "bg-green-400/20 text-green-400" :
+                        rec.action === "SELL" ? "bg-red-400/20 text-red-400" :
+                        "bg-yellow-400/20 text-yellow-400"
+                      }`}>
+                        {rec.action} ({(rec.confidence * 100).toFixed(0)}%)
+                      </span>
+                    </div>
+                    <p className="text-sm text-muted-foreground line-clamp-3">{rec.reasoning}</p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <StatusBadge type={vote.vote} />
-                    <span className="font-mono text-sm text-foreground">
-                      {vote.confidence}%
-                    </span>
-                  </div>
-                </div>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  {vote.reasoning}
-                </p>
-              </GlassCard>
-            ))}
-          </div>
+                ))}
+              </div>
+            </GlassCard>
+          )}
 
-          {/* ISABEL Analysis */}
-          <GlassCard title="ISABEL RAG Analysis">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-              <div>
-                <span className="text-xs text-muted-foreground block mb-1">
-                  Sentiment
-                </span>
-                <span className="text-lg font-mono text-success">
-                  Positive ({result.isabel.sentiment.toFixed(2)})
-                </span>
-              </div>
-              <div>
-                <span className="text-xs text-muted-foreground block mb-1">
-                  Articles Analyzed
-                </span>
-                <span className="text-lg font-mono text-foreground">
-                  {result.isabel.articleCount} articles
-                </span>
-              </div>
-              <div>
-                <span className="text-xs text-muted-foreground block mb-1">
-                  Key Topics
-                </span>
-                <div className="flex flex-wrap gap-2">
-                  {result.isabel.topics.map((topic) => (
-                    <span
-                      key={topic}
-                      className="px-2 py-0.5 text-xs bg-muted/50 text-foreground rounded"
-                    >
-                      {topic}
-                    </span>
-                  ))}
+          {/* Algo Analysis */}
+          {result.algo_analysis && (
+            <GlassCard title="Algorithm Pattern Analysis">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="p-4 bg-background/50 rounded-lg">
+                  <p className="text-sm text-muted-foreground">Volume Anomaly</p>
+                  <p className={`text-xl font-bold ${result.algo_analysis.volumeAnomaly.detected ? "text-orange-400" : "text-green-400"}`}>
+                    {result.algo_analysis.volumeAnomaly.detected ? "Detected" : "Normal"}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">{result.algo_analysis.volumeAnomaly.reason}</p>
+                </div>
+                <div className="p-4 bg-background/50 rounded-lg">
+                  <p className="text-sm text-muted-foreground">Pattern</p>
+                  <p className="text-xl font-bold text-primary">{result.algo_analysis.algoPattern.pattern}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{result.algo_analysis.algoPattern.description}</p>
+                </div>
+                <div className="p-4 bg-background/50 rounded-lg">
+                  <p className="text-sm text-muted-foreground">Predicted Action</p>
+                  <p className="text-xl font-bold text-secondary">{result.algo_analysis.predictedAction.action}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{result.algo_analysis.predictedAction.reasoning}</p>
                 </div>
               </div>
-            </div>
-          </GlassCard>
-
-          {/* Execute Trade */}
-          <div className="flex justify-center">
-            <button className="px-8 py-3 bg-gradient-to-r from-primary to-secondary text-primary-foreground rounded-lg font-medium hover:opacity-90 transition-opacity">
-              Execute Trade: BUY 1 share of {symbol}
-            </button>
-          </div>
+            </GlassCard>
+          )}
         </>
+      )}
+
+      {!result && !loading && (
+        <GlassCard>
+          <div className="text-center py-12 text-muted-foreground">
+            <p className="text-lg">Enter a stock symbol to analyze</p>
+            <p className="text-sm mt-2">Example: AAPL, NVDA, GOOGL, MSFT, TSLA</p>
+          </div>
+        </GlassCard>
       )}
     </div>
   );
